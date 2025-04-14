@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Memory Lights - Infinity Mode</title>
+    <title>Memory Lights - Full Version</title>
     <style>
         body {
             display: flex;
@@ -98,17 +98,29 @@
             display: none;
             z-index: 9999;
         }
-        #scrimer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-background: black url('/Memory_Lights-/image.png') no-repeat center;
-    background-size: cover;
-    display: none;
-    z-index: 9999;
-}
+
+        #difficulty-menu {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px 50px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 10000;
+        }
+        
+        .difficulty-btn {
+            display: block;
+            width: 200px;
+            margin: 15px auto;
+            background-color: #2196F3;
+        }
+        
+        #easy-btn { background-color: #4CAF50; }
+        #normal-btn { background-color: #FFC107; }
+        #hard-btn { background-color: #f44336; }
 
         .fade-out {
             animation: fadeOut 0.3s ease forwards;
@@ -121,33 +133,54 @@ background: black url('/Memory_Lights-/image.png') no-repeat center;
     </style>
 </head>
 <body>
+    <div id="difficulty-menu">
+        <h2>Выберите сложность:</h2>
+        <button class="difficulty-btn" id="easy-btn">Лёгкий</button>
+        <button class="difficulty-btn" id="normal-btn">Стандартный</button>
+        <button class="difficulty-btn" id="hard-btn">Сложный</button>
+    </div>
+
     <div id="stats">
         <div>Уровень: <span id="level">1</span></div>
         <div>Время: <span id="timer">60</span> сек</div>
     </div>
     <div id="record">Рекорд: <span id="best-level">1</span></div>
-    <button id="start-btn">Начать игру</button>
     <div id="color-monitor"></div>
     <div id="game-container"></div>
     <div id="scrimer"></div>
-    <div id="scrimer">
-        <audio id="scream-sound" src="skrimer-golden-freddy-fnaf-1.mp3"></audio>
-    </div>
 
     <script>
-        let bestLevel = localStorage.getItem('bestLevel') || 1;
-        document.getElementById('best-level').textContent = bestLevel;
-
-        function getLevelSettings(level) {
-            return {
-                buttons: Math.min(5 + Math.floor(level * 0.6), 12),
-                sequenceLength: 3 + Math.floor(level * 0.8),
-                speed: Math.max(300, 1000 - (level * 80)),
-                timeBonus: Math.max(3, 15 - Math.floor(level * 0.7))
-            };
-        }
+        const difficultySettings = {
+            easy: {
+                startButtons: 4,
+                startSpeed: 1200,
+                startTime: 90,
+                sequenceGrowth: 0.5,
+                speedDecay: 50
+            },
+            normal: {
+                startButtons: 5,
+                startSpeed: 1000,
+                startTime: 60,
+                sequenceGrowth: 0.8,
+                speedDecay: 80
+            },
+            hard: {
+                startButtons: 6,
+                startSpeed: 800,
+                startTime: 45,
+                sequenceGrowth: 1.2,
+                speedDecay: 100
+            }
+        };
 
         let currentLevel = 1;
+        let currentDifficulty = 'normal';
+        let bestScores = JSON.parse(localStorage.getItem('bestScores')) || {
+            easy: 1,
+            normal: 1,
+            hard: 1
+        };
         let sequence = [];
         let playerInput = [];
         let timeLeft = 60;
@@ -159,12 +192,35 @@ background: black url('/Memory_Lights-/image.png') no-repeat center;
         const elements = {
             gameContainer: document.getElementById('game-container'),
             timer: document.getElementById('timer'),
-            startBtn: document.getElementById('start-btn'),
             colorMonitor: document.getElementById('color-monitor'),
             level: document.getElementById('level'),
             bestLevel: document.getElementById('best-level'),
-            scrimer: document.getElementById('scrimer')
+            scrimer: document.getElementById('scrimer'),
+            difficultyMenu: document.getElementById('difficulty-menu')
         };
+
+        // Инициализация рекордов
+        document.getElementById('best-level').textContent = bestScores[currentDifficulty];
+
+        // Обработчики выбора сложности
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                currentDifficulty = this.id.replace('-btn', '');
+                elements.bestLevel.textContent = bestScores[currentDifficulty];
+                elements.difficultyMenu.style.display = 'none';
+                startGame();
+            });
+        });
+
+        function getLevelSettings(level) {
+            const diff = difficultySettings[currentDifficulty];
+            return {
+                buttons: Math.min(diff.startButtons + Math.floor(level * 0.6), 12),
+                sequenceLength: 3 + Math.floor(level * diff.sequenceGrowth),
+                speed: Math.max(300, diff.startSpeed - (level * diff.speedDecay)),
+                timeBonus: Math.max(3, 15 - Math.floor(level * 0.7))
+            };
+        }
 
         function generateColors() {
             const settings = getLevelSettings(currentLevel);
@@ -193,7 +249,6 @@ background: black url('/Memory_Lights-/image.png') no-repeat center;
                 light.dataset.index = i;
                 light.style.backgroundColor = color;
                 light.dataset.originalColor = color;
-                
                 light.addEventListener('click', handleLightClick);
                 elements.gameContainer.appendChild(light);
             });
@@ -202,15 +257,11 @@ background: black url('/Memory_Lights-/image.png') no-repeat center;
         function startGame() {
             if (isPlaying) return;
             
-            elements.startBtn.classList.add('fade-out');
-            setTimeout(() => {
-                elements.startBtn.style.display = 'none';
-            }, 300);
-
-            generateColors();
+            timeLeft = difficultySettings[currentDifficulty].startTime;
             currentLevel = 1;
-            timeLeft = 60;
             isPlaying = true;
+            
+            generateColors();
             elements.level.textContent = currentLevel;
             updateTimer();
             initGame();
@@ -284,10 +335,10 @@ background: black url('/Memory_Lights-/image.png') no-repeat center;
             updateTimer();
             
             if (isCorrect) {
-                if(currentLevel > bestLevel) {
-                    bestLevel = currentLevel;
-                    localStorage.setItem('bestLevel', bestLevel);
-                    elements.bestLevel.textContent = bestLevel;
+                if(currentLevel > bestScores[currentDifficulty]) {
+                    bestScores[currentDifficulty] = currentLevel;
+                    localStorage.setItem('bestScores', JSON.stringify(bestScores));
+                    elements.bestLevel.textContent = currentLevel;
                 }
                 
                 currentLevel++;
@@ -344,18 +395,17 @@ background: black url('/Memory_Lights-/image.png') no-repeat center;
         function endGame() {
             isPlaying = false;
             stopTimer();
-            elements.startBtn.style.display = 'block';
-            elements.startBtn.classList.remove('fade-out');
             if (timeLeft <= 0) {
                 showScrimer();
             }
+            location.reload();
         }
 
         function showScrimer() {
             elements.scrimer.style.display = 'block';
             setTimeout(() => {
                 elements.scrimer.style.display = 'none';
-            }, 1000);
+            }, 2000);
         }
 
         function disableClicks() {
@@ -365,8 +415,6 @@ background: black url('/Memory_Lights-/image.png') no-repeat center;
         function enableClicks() {
             elements.gameContainer.style.pointerEvents = 'auto';
         }
-
-        elements.startBtn.addEventListener('click', startGame);
     </script>
 </body>
 </html>
