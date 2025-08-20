@@ -281,11 +281,12 @@
             const settings = getLevelSettings(currentLevel);
             
             for (const index of sequence) {
+                // Синхронное отображение цвета на мониторе и подсветка лампочки
                 const light = elements.gameContainer.children[index];
                 elements.colorMonitor.style.backgroundColor = light.style.backgroundColor;
+                await activateLight(index);
                 await new Promise(r => setTimeout(r, settings.speed));
                 elements.colorMonitor.style.backgroundColor = '#000';
-                await activateLight(index);
                 await new Promise(r => setTimeout(r, settings.speed * 0.3));
             }
             startTimer();
@@ -417,4 +418,4 @@
         }
     </script>
 </body>
-</html>
+    </html>
